@@ -62,6 +62,56 @@ impl Quartiles {
         }
     }
 
+
+    /// Create a new quartiles struct with the values calculated from the argument.
+    /// 
+    /// Unlike [`new`](Self::new), the wiskers, are the extrema
+    ///
+    /// - `s`: The array of the original values
+    /// - **returns** The newly created quartiles
+    ///
+    /// ```rust
+    /// use plotters::prelude::*;
+    ///
+    /// let quartiles = Quartiles::real(&[7, 15, 36, 39, 40, 41]);
+    /// assert_eq!(quartiles.median(), 37.5);
+    /// ```
+    pub fn real<T: Into<f64> + Copy + PartialOrd>(s: &[T]) -> Self {
+        let mut s = s.to_owned();
+        s.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+
+        let quartile = |p: f64| -> f64 {
+            let n = (s.len() + 1) as f64 ;
+            let alpha = p * n / 4.0;
+            let k = alpha.floor();
+            let alpha = alpha - k;
+            let k = k as usize;
+            if k == 0 {
+                return s[0].into()
+            }
+            let k = k - 1;
+            
+            if k >= s.len() - 1 {
+                s[s.len() - 1].into()
+            } else {
+                s[k].into() + alpha * (s[k+1].into() - s[k].into())
+            }
+        };
+
+        let lower_fence = quartile(0_f64);
+        let lower = quartile(1_f64);
+        let median = quartile(2_f64);
+        let upper = quartile(3_f64);
+        let upper_fence = quartile(4_f64);
+        Self {
+            lower_fence,
+            lower,
+            median,
+            upper,
+            upper_fence,
+        }
+    }
+
     /// Get the quartiles values.
     ///
     /// - **returns** The array [lower fence, lower quartile, median, upper quartile, upper fence]
@@ -116,12 +166,36 @@ mod test {
             [15.0, 15.0, 15.0, 15.0, 15.0]
         );
         assert_eq!(
+            Quartiles::real(&[15.0]).values(),
+            [15.0, 15.0, 15.0, 15.0, 15.0]
+        );
+        assert_eq!(
             Quartiles::new(&[10, 20]).values(),
             [5.0, 12.5, 15.0, 17.5, 25.0]
         );
         assert_eq!(
+            Quartiles::real(&[10, 20]).values(),
+            [10.0, 10.0, 15.0, 20.0, 20.0]
+        );
+        assert_eq!(
             Quartiles::new(&[10, 20, 30]).values(),
             [0.0, 15.0, 20.0, 25.0, 40.0]
+        );
+        assert_eq!(
+            Quartiles::real(&[10, 20, 30]).values(),
+            [10.0, 10.0, 20.0, 30.0, 30.0]
+        );
+        assert_eq!(
+            Quartiles::real(&[10, 20, 30, 40]).values(),
+            [10.0, 12.5, 25.0, 37.5, 40.0]
+        );
+        assert_eq!(
+            Quartiles::real(&[7, 15, 36, 39, 40, 41]).values(),
+            [7.0, 13.0, 37.5, 40.25, 41.0]
+        );
+        assert_eq!(
+            Quartiles::real(&[6, 7, 15, 36, 39, 40, 41, 42, 43, 47, 49]).values(),
+            [6.0, 15.0, 40.0, 43.0, 49.0]
         );
     }
 }
