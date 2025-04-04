@@ -98,11 +98,65 @@ impl Quartiles {
             }
         };
 
+        
         let lower_fence = quartile(0_f64);
         let lower = quartile(1_f64);
         let median = quartile(2_f64);
         let upper = quartile(3_f64);
         let upper_fence = quartile(4_f64);
+        Self {
+            lower_fence,
+            lower,
+            median,
+            upper,
+            upper_fence,
+        }
+    }
+
+    /// Create a new quartiles struct with the values calculated from the argument.
+    /// 
+    /// This is a mix of [`new`](Self::new) and [`real`](`Self::real`):<br>
+    /// The lower fence is the max of the lower fences while the upper fence is the min of the upper fences
+    ///
+    /// - `s`: The array of the original values
+    /// - **returns** The newly created quartiles
+    ///
+    /// ```rust
+    /// use plotters::prelude::*;
+    ///
+    /// let quartiles = Quartiles::fair(&[7, 15, 36, 39, 40, 41]);
+    /// assert_eq!(quartiles.median(), 37.5);
+    /// ```
+    pub fn fair<T: Into<f64> + Copy + PartialOrd>(s: &[T]) -> Self {
+        let mut s = s.to_owned();
+        s.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+
+        let quartile = |p: f64| -> f64 {
+            let n = (s.len() + 1) as f64 ;
+            let alpha = p * n / 4.0;
+            let k = alpha.floor();
+            let alpha = alpha - k;
+            let k = k as usize;
+            if k == 0 {
+                return s[0].into()
+            }
+            let k = k - 1;
+            
+            if k >= s.len() - 1 {
+                s[s.len() - 1].into()
+            } else {
+                s[k].into() + alpha * (s[k+1].into() - s[k].into())
+            }
+        };
+        
+        let lower = quartile(1_f64);
+        let median = quartile(2_f64);
+        let upper = quartile(3_f64);
+        let iqr = upper - lower;
+        let lower_fence = lower - 1.5 * iqr;
+        let lower_fence = lower_fence.max(quartile(0_f64));
+        let upper_fence = upper + 1.5 * iqr;
+        let upper_fence = upper_fence.min(quartile(4_f64));
         Self {
             lower_fence,
             lower,
